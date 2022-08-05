@@ -41,6 +41,7 @@ import javax.validation.constraints.NotNull;
 @EqualsAndHashCode
 @Getter
 @NoArgsConstructor
+@io.kestra.core.validations.Schedule
 @Schema(
     title = "Schedule a flow based on cron date",
     description = "Kestra is able to trigger flow based on Schedule (aka the time). If you need to wait another system " +
@@ -66,6 +67,16 @@ import javax.validation.constraints.NotNull;
             full = true
         ),
         @Example(
+            title = "A schedule with a nickname",
+            code = {
+                "triggers:",
+                "  - id: schedule",
+                "    type: io.kestra.core.models.triggers.types.Schedule",
+                "    cron: \"@hourly\"",
+            },
+            full = true
+        ),
+        @Example(
             title = "A schedule that run only the first monday on every month at 11 AM",
             code = {
                 "triggers:",
@@ -73,7 +84,7 @@ import javax.validation.constraints.NotNull;
                 "    cron: \"0 11 * * 1\"",
                 "    scheduleConditions:",
                 "      - id: monday",
-                "        date: \"{{ trigger.date }}\"" +
+                "        date: \"{{ trigger.date }}\"",
                 "        dayOfWeek: \"MONDAY\"",
                 "        dayInMonth: \"FIRST\"",
             },
@@ -83,19 +94,41 @@ import javax.validation.constraints.NotNull;
 
 )
 public class Schedule extends AbstractTrigger implements PollingTriggerInterface, TriggerOutput<Schedule.Output> {
-    private static final CronParser CRON_PARSER = new CronParser(CronDefinitionBuilder.instanceDefinitionFor(CronType.UNIX));
+    public static final CronParser CRON_PARSER = new CronParser(CronDefinitionBuilder.defineCron()
+        .withMinutes().withValidRange(0, 59).withStrictRange().and()
+        .withHours().withValidRange(0, 23).withStrictRange().and()
+        .withDayOfMonth().withValidRange(1, 31).withStrictRange().and()
+        .withMonth().withValidRange(1, 12).withStrictRange().and()
+        .withDayOfWeek().withValidRange(0, 7).withMondayDoWValue(1).withIntMapping(7, 0).withStrictRange().and()
+        .withSupportedNicknameYearly()
+        .withSupportedNicknameAnnually()
+        .withSupportedNicknameMonthly()
+        .withSupportedNicknameWeekly()
+        .withSupportedNicknameDaily()
+        .withSupportedNicknameMidnight()
+        .withSupportedNicknameHourly()
+        .instance()
+    );
 
     @NotNull
     @CronExpression
     @Schema(
-        title = "the cron expression you need tyo ",
-        description = "a standard [unix cron expression](https://en.wikipedia.org/wiki/Cron) without second."
+        title = "the cron expression",
+        description = "a standard [unix cron expression](https://en.wikipedia.org/wiki/Cron) without second.\n" +
+            "Can also be a cron extensions / nicknames:\n" +
+            "* `@yearly`\n" +
+            "* `@annually`\n" +
+            "* `@monthly`\n" +
+            "* `@weekly`\n" +
+            "* `@daily`\n" +
+            "* `@midnight`\n" +
+            "* `@hourly`"
     )
     private String cron;
 
     @Schema(
         title = "Backfill options in order to fill missing previous past date",
-        description = "Kestra will handle optionnaly a backfill. The concept of backfill is the replay the missing schedule because we create the flow later.\n" +
+        description = "Kestra will handle optionally a backfill. The concept of backfill is the replay the missing schedule because we create the flow later.\n" +
             "\n" +
             "Backfill will do all schedules between define date & current date and will start after the normal schedule."
     )
@@ -116,13 +149,21 @@ public class Schedule extends AbstractTrigger implements PollingTriggerInterface
     @PluginProperty(dynamic = true)
     private Map<String, String> inputs;
 
+    @Schema(
+        title = "The maximum late delay accepted",
+        description = "If the schedule didn't start after this delay, the execution will be skip."
+    )
+    private Duration lateMaximumDelay;
+
+    @Getter(AccessLevel.NONE)
+    private transient ExecutionTime executionTime;
+
     @Override
     public ZonedDateTime nextEvaluationDate(ConditionContext conditionContext, Optional<? extends TriggerContext> last) {
         ExecutionTime executionTime = this.executionTime();
 
         // previous present & scheduleConditions
         if (last.isPresent() && this.scheduleConditions != null) {
-
             Optional<ZonedDateTime> next = this.truePreviousNextDateWithCondition(
                 executionTime,
                 conditionContext,
@@ -152,7 +193,12 @@ public class Schedule extends AbstractTrigger implements PollingTriggerInterface
     public Optional<Execution> evaluate(ConditionContext conditionContext, TriggerContext context) throws Exception {
         RunContext runContext = conditionContext.getRunContext();
         ExecutionTime executionTime = this.executionTime();
-        Output output = this.output(executionTime, context.getDate()).orElse(null);
+        ZonedDateTime previousDate = context.getDate();
+
+        Output output = this.output(executionTime, previousDate).orElse(null);
+
+        // if max delay reach, we calculate a new date
+        output = this.handleMaxDelay(output);
 
         if (output == null || output.getDate() == null) {
             return Optional.empty();
@@ -161,7 +207,7 @@ public class Schedule extends AbstractTrigger implements PollingTriggerInterface
         ZonedDateTime next = output.getDate();
 
         // we try at the exact time / standard behaviour
-        boolean isReady = next.compareTo(context.getDate()) == 0;
+        boolean isReady = next.compareTo(previousDate) == 0;
 
         // in case on cron expression changed, the next date will never match, so we allow past operation to start
         boolean isLate = next.compareTo(ZonedDateTime.now().minus(Duration.ofMinutes(1))) < 0;
@@ -188,7 +234,6 @@ public class Schedule extends AbstractTrigger implements PollingTriggerInterface
             // recalculate true output for previous and next based on conditions
             output = this.trueOutputWithCondition(executionTime, conditionContext, output);
         }
-
 
         Map<String, Object> inputs = new HashMap<>();
         if (this.inputs != null) {
@@ -244,10 +289,14 @@ public class Schedule extends AbstractTrigger implements PollingTriggerInterface
         ));
     }
 
-    private ExecutionTime executionTime() {
-        Cron parse = CRON_PARSER.parse(this.cron);
+    private synchronized ExecutionTime executionTime() {
+        if (this.executionTime == null) {
+            Cron parse = CRON_PARSER.parse(this.cron);
 
-        return ExecutionTime.forCron(parse);
+            this.executionTime = ExecutionTime.forCron(parse);
+        }
+
+        return this.executionTime;
     }
 
     private Optional<ZonedDateTime> computeNextEvaluationDate(ExecutionTime executionTime, ZonedDateTime date) {
@@ -297,6 +346,32 @@ public class Schedule extends AbstractTrigger implements PollingTriggerInterface
         }
 
         return Optional.empty();
+    }
+
+    private Output handleMaxDelay(Output output) {
+        if (output == null) {
+            return null;
+        }
+
+        if (this.lateMaximumDelay == null) {
+            return output;
+        }
+
+        while (
+            (output.getDate().getYear() < ZonedDateTime.now().getYear() + 10) ||
+                (output.getDate().getYear() > ZonedDateTime.now().getYear() - 10)
+        ) {
+            if (output.getDate().plus(this.lateMaximumDelay).compareTo(ZonedDateTime.now()) < 0) {
+                output = this.output(executionTime, output.getNext()).orElse(null);
+                if (output == null) {
+                    return null;
+                }
+            } else {
+                return output;
+            }
+        }
+
+        return output;
     }
 
     private boolean validateScheduleCondition(ConditionContext conditionContext) {

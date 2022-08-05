@@ -53,10 +53,12 @@ public class MetricRegistry {
 
     public final static String STREAMS_STATE_COUNT = "stream.state.count";
 
+
+    public final static String JDBC_QUERY_DURATION = "jdbc.query.duration";
+
     public final static String TAG_TASK_TYPE = "task_type";
     public final static String TAG_FLOW_ID = "flow_id";
     public final static String TAG_NAMESPACE_ID = "namespace_id";
-    public final static String TAG_TRIGGER_ID = "trigger_id";
     public final static String TAG_STATE = "state";
     public final static String TAG_ATTEMPT_COUNT = "attempt_count";
 
@@ -193,7 +195,6 @@ public class MetricRegistry {
         return new String[]{
             TAG_FLOW_ID, triggerContext.getFlowId(),
             TAG_NAMESPACE_ID, triggerContext.getNamespace(),
-            TAG_TRIGGER_ID, triggerContext.getTriggerId(),
         };
     }
 
@@ -205,11 +206,8 @@ public class MetricRegistry {
      */
     public String[] tags(SchedulerExecutionWithTrigger schedulerExecutionWithTrigger, String... tags) {
         return ArrayUtils.addAll(
-            ArrayUtils.addAll(
-                this.tags(schedulerExecutionWithTrigger.getExecution()),
-                tags
-            ),
-            TAG_TRIGGER_ID, schedulerExecutionWithTrigger.getTriggerContext().getTriggerId()
+            this.tags(schedulerExecutionWithTrigger.getExecution()),
+            tags
         );
     }
 

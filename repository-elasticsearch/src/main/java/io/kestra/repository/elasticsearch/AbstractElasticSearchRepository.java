@@ -14,10 +14,13 @@ import io.micronaut.data.model.Pageable;
 import io.micronaut.data.model.Sort;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.lucene.queryparser.classic.QueryParser;
 import org.opensearch.action.DocWriteResponse;
 import org.opensearch.action.ShardOperationFailedException;
 import org.opensearch.action.admin.indices.settings.get.GetSettingsRequest;
 import org.opensearch.action.admin.indices.settings.get.GetSettingsResponse;
+import org.opensearch.action.delete.DeleteRequest;
+import org.opensearch.action.delete.DeleteResponse;
 import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.index.IndexRequest;
@@ -38,6 +41,7 @@ import org.opensearch.common.unit.TimeValue;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
+import org.opensearch.index.query.QueryStringQueryBuilder;
 import org.opensearch.script.Script;
 import org.opensearch.script.ScriptType;
 import org.opensearch.search.SearchHit;
@@ -102,6 +106,27 @@ abstract public class AbstractElasticSearchRepository<T> {
     protected BoolQueryBuilder defaultFilter() {
         return QueryBuilders.boolQuery()
             .must(QueryBuilders.matchQuery("deleted", false));
+    }
+
+
+    protected static QueryStringQueryBuilder queryString(@Nullable String query) {
+        if (query == null) {
+            return QueryBuilders.queryStringQuery("*");
+        }
+
+        List<String> words = Arrays.stream(query.split("[^a-zA-Z0-9_.-]+"))
+            .filter(r -> !r.equals(""))
+            .map(QueryParser::escape)
+            .collect(Collectors.toList());
+
+        String lucene = "(*" + String.join("*", words) + "*)^3 OR (*" + String.join("* AND *", words) + "*)";
+
+
+        if (words.size() == 1) {
+            lucene = "(" + query + ")^5 OR " + lucene;
+        }
+
+        return QueryBuilders.queryStringQuery(lucene);
     }
 
     protected Optional<T> getRequest(String index, String id) {
@@ -214,6 +239,20 @@ abstract public class AbstractElasticSearchRepository<T> {
         return this.updateRequest(index, id, delete);
     }
 
+    protected DeleteResponse rawDeleteRequest(String index, String id) {
+        DeleteRequest request = new DeleteRequest(this.indicesConfigs.get(index).getIndex(), id);
+        request.setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE);
+
+        try {
+            DeleteResponse response = client.delete(request, RequestOptions.DEFAULT);
+            handleWriteErrors(response);
+
+            return response;
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     protected SearchRequest searchRequest(String index, SearchSourceBuilder sourceBuilder, boolean scroll) {
         SearchRequest searchRequest = new SearchRequest()
             .indices(this.indicesConfigs.get(index).getIndex())
@@ -298,7 +337,9 @@ abstract public class AbstractElasticSearchRepository<T> {
         SearchSourceBuilder sourceBuilder = new SearchSourceBuilder()
             .query(query);
 
-        if (pageable != null) {
+        if (pageable != null && pageable.getSize() == -1) {
+            sourceBuilder.size(1000);
+        } else if (pageable != null) {
             sourceBuilder
                 .size(pageable.getSize())
                 .from(Math.toIntExact(pageable.getOffset() - pageable.getSize()));
@@ -320,10 +361,11 @@ abstract public class AbstractElasticSearchRepository<T> {
     }
 
     protected ArrayListTotal<T> findQueryString(String index, String query, Pageable pageable) {
-        BoolQueryBuilder bool = this.defaultFilter()
-            .must(QueryBuilders.queryStringQuery(query)
-                .field("*.fulltext")
-            );
+        BoolQueryBuilder bool = this.defaultFilter();
+
+        if (query != null) {
+            bool.must(QueryBuilders.queryStringQuery(query).field("*.fulltext"));
+        }
 
         SearchSourceBuilder sourceBuilder = this.searchSource(bool, Optional.empty(), pageable);
 

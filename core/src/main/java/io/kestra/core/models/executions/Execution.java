@@ -191,7 +191,7 @@ public class Execution implements DeletedInterface {
 
         List<TaskRun> errorsFlow = this.findTaskRunByTasks(resolvedErrors, parentTaskRun);
 
-        if (errorsFlow.size() > 0 || this.hasFailed(resolvedTasks)) {
+        if (errorsFlow.size() > 0 || this.hasFailed(resolvedTasks, parentTaskRun)) {
             return resolvedErrors == null ? new ArrayList<>() : resolvedErrors;
         }
 
@@ -408,6 +408,14 @@ public class Execution implements DeletedInterface {
             .orElse(null);
 
         if (current == null) {
+            return true;
+        }
+
+        // attempts & retry need to be saved
+        if (
+            (current.getAttempts() == null && taskRun.getAttempts() != null) ||
+                (current.getAttempts() != null && taskRun.getAttempts() != null && current.getAttempts().size() < taskRun.getAttempts().size())
+        ) {
             return true;
         }
 

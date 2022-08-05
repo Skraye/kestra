@@ -1,6 +1,7 @@
 package io.kestra.core.tasks.scripts;
 
 import com.google.common.base.Charsets;
+import io.kestra.core.exceptions.IllegalVariableEvaluationException;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
@@ -54,7 +55,7 @@ import static io.kestra.core.utils.Rethrow.throwSupplier;
                 "    const result = fs.readFileSync(process.argv[2], \"utf-8\")",
                 "    console.log(JSON.parse(result).status)",
                 "    const axios = require('axios')",
-                "    axios.get('http://google.fr').then(d => console.log(d.status); Kestra.outputs({'status': d.status, 'text': d.data}))",
+                "    axios.get('http://google.fr').then(d => { console.log(d.status); Kestra.outputs({'status': d.status, 'text': d.data})})",
                 "    console.log(require('./mymodule').value)",
                 "  data.json: |",
                 "    {\"status\": \"OK\"}",
@@ -71,7 +72,7 @@ import static io.kestra.core.utils.Rethrow.throwSupplier;
                 "      },",
                 "      \"devDependencies\": {},",
                 "      \"scripts\": {",
-                "          \"test\": \"echo \"Error: no test specified\" && exit 1\"",
+                "          \"test\": \"echo `Error: no test specified` && exit 1\"",
                 "      },",
                 "      \"author\": \"\",",
                 "      \"license\": \"ISC\"",
@@ -106,8 +107,8 @@ public class Node extends AbstractBash implements RunnableTask<ScriptOutput> {
     private List<String> args;
 
     @Override
-    protected Map<String, String> finalInputFiles() throws IOException {
-        Map<String, String> map = super.finalInputFiles();
+    protected Map<String, String> finalInputFiles(RunContext runContext) throws IOException, IllegalVariableEvaluationException {
+        Map<String, String> map = super.finalInputFiles(runContext);
 
         map.put("kestra.js", IOUtils.toString(
             Objects.requireNonNull(Node.class.getClassLoader().getResourceAsStream("scripts/kestra.js")),

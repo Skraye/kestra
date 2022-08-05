@@ -1,5 +1,6 @@
 package io.kestra.core.tasks.scripts;
 
+import io.kestra.core.exceptions.IllegalVariableEvaluationException;
 import io.kestra.core.models.annotations.PluginProperty;
 import io.kestra.core.models.executions.AbstractMetricEntry;
 import io.kestra.core.models.tasks.Task;
@@ -139,7 +140,7 @@ abstract public class AbstractBash extends Task {
     @Getter(AccessLevel.NONE)
     protected transient Map<String, Object> additionalVars = new HashMap<>();
 
-    protected Map<String, String> finalInputFiles() throws IOException {
+    protected Map<String, String> finalInputFiles(RunContext runContext) throws IOException, IllegalVariableEvaluationException {
         return this.inputFiles != null ? new HashMap<>(this.inputFiles) : new HashMap<>();
     }
 
@@ -190,7 +191,7 @@ abstract public class AbstractBash extends Task {
         BashService.createInputFiles(
             runContext,
             workingDirectory,
-            this.finalInputFiles(),
+            this.finalInputFiles(runContext),
             additionalVars
         );
 
@@ -325,8 +326,7 @@ abstract public class AbstractBash extends Task {
             title = "Docker api uri"
         )
         @PluginProperty(dynamic = true)
-        @Builder.Default
-        private final String dockerHost = "unix:///var/run/docker.sock";
+        private String dockerHost;
 
         @Schema(
             title = "Docker config file",
@@ -366,5 +366,13 @@ abstract public class AbstractBash extends Task {
         )
         @PluginProperty(dynamic = true)
         protected String networkMode;
+
+        @Schema(
+            title = "List of volumes to mount",
+            description = "Must be a valid mount expression as string, example : `/home/user:/app`\n\n" +
+                "Volumes mount are disabled by default for security reasons, you must enabled on server configuration with `kestra.tasks.scripts.docker.volume-enabled` to `true`"
+        )
+        @PluginProperty(dynamic = true)
+        protected List<String> volumes;
     }
 }

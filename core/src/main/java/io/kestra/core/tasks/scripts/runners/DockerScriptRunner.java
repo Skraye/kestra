@@ -41,16 +41,20 @@ import static io.kestra.core.utils.Rethrow.throwFunction;
 public class DockerScriptRunner implements ScriptRunnerInterface {
     private final RetryUtils retryUtils;
 
+    private final Boolean volumesEnabled;
+
     public DockerScriptRunner(ApplicationContext applicationContext) {
         this.retryUtils = applicationContext.getBean(RetryUtils.class);
+        this.volumesEnabled = applicationContext.getProperty("kestra.tasks.scripts.docker.volume-enabled", Boolean.class).orElse(false);
     }
 
     private DockerClient getDockerClient(AbstractBash abstractBash, RunContext runContext, Path workingDirectory) throws IllegalVariableEvaluationException, IOException {
         DefaultDockerClientConfig.Builder dockerClientConfigBuilder = DefaultDockerClientConfig.createDefaultConfigBuilder();
 
+        String dockerHost = null;
         if (abstractBash.getDockerOptions() != null) {
             if (abstractBash.getDockerOptions().getDockerHost() != null) {
-                dockerClientConfigBuilder.withDockerHost(runContext.render(abstractBash.getDockerOptions().getDockerHost()));
+                dockerHost = runContext.render(abstractBash.getDockerOptions().getDockerHost());
             }
 
             if (abstractBash.getDockerOptions().getDockerConfig() != null) {
@@ -60,6 +64,16 @@ public class DockerScriptRunner implements ScriptRunnerInterface {
                 Files.write(file, runContext.render(abstractBash.getDockerOptions().getDockerConfig()).getBytes());
 
                 dockerClientConfigBuilder.withDockerConfig(docker.toFile().getAbsolutePath());
+            }
+        }
+
+        if (dockerHost != null) {
+            dockerClientConfigBuilder.withDockerHost(dockerHost);
+        } else {
+            if (Files.exists(Path.of("/var/run/docker.sock"))) {
+                dockerClientConfigBuilder.withDockerHost("unix:///var/run/docker.sock");
+            } else if (Files.exists(Path.of("/dind/docker.sock"))) {
+                dockerClientConfigBuilder.withDockerHost("unix:///dind/docker.sock");
             }
         }
 
@@ -170,6 +184,14 @@ public class DockerScriptRunner implements ScriptRunnerInterface {
 
             if (abstractBash.getDockerOptions().getExtraHosts() != null) {
                 hostConfig.withExtraHosts(runContext.render(abstractBash.getDockerOptions().getExtraHosts(), additionalVars).toArray(String[]::new));
+            }
+
+            if (this.volumesEnabled && abstractBash.getDockerOptions().getVolumes() != null) {
+                hostConfig.withBinds(runContext.render(abstractBash.getDockerOptions().getVolumes())
+                    .stream()
+                    .map(Bind::parse)
+                    .collect(Collectors.toList())
+                );
             }
 
             if (abstractBash.getDockerOptions().getNetworkMode() != null) {

@@ -61,6 +61,8 @@ public class Flow implements DeletedInterface {
 
     String description;
 
+    Map<String, String> labels;
+
     @Valid
     List<Input> inputs;
 
@@ -153,9 +155,13 @@ public class Flow implements DeletedInterface {
 
     private Stream<Task> allTasksWithChilds(Task task) {
         if (task.isFlowable()) {
+            Stream<Task> taskStream = ((FlowableTask<?>) task).allChildTasks()
+                .stream()
+                .flatMap(this::allTasksWithChilds);
+
             return Stream.concat(
                 Stream.of(task),
-                ((FlowableTask<?>) task).allChildTasks().stream()
+                taskStream
             );
         } else {
             return Stream.of(task);
@@ -309,6 +315,7 @@ public class Flow implements DeletedInterface {
             this.namespace,
             this.revision + 1,
             this.description,
+            this.labels,
             this.inputs,
             this.variables,
             this.tasks,

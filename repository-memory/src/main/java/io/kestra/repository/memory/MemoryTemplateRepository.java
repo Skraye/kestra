@@ -43,7 +43,7 @@ public class MemoryTemplateRepository implements TemplateRepositoryInterface {
     }
 
     @Override
-    public ArrayListTotal<Template> find(String query, Pageable pageable) {
+    public ArrayListTotal<Template> find(Pageable pageable, String query, String namespace) {
         if (pageable.getNumber() < 1) {
             throw new ValueException("Page cannot be < 1");
         }
@@ -97,9 +97,11 @@ public class MemoryTemplateRepository implements TemplateRepositoryInterface {
         }
 
         this.templates.remove(template.getId());
-        templateQueue.emit(template.toDeleted());
+        Template deleted = template.toDeleted();
 
-        eventPublisher.publishEvent(new CrudEvent<>(template, CrudEventType.DELETE));
+        templateQueue.emit(deleted);
+
+        eventPublisher.publishEvent(new CrudEvent<>(deleted, CrudEventType.DELETE));
     }
 
     @Override

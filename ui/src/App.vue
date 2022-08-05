@@ -2,7 +2,7 @@
     <div>
         <nprogress-container />
         <top-nav-bar :menu-collapsed="menuCollapsed" />
-        <Menu @onMenuCollapse="onMenuCollapse" />
+        <left-menu @onMenuCollapse="onMenuCollapse" />
         <custom-toast v-if="message" :no-auto-hide="true" :message="message" />
         <div id="app" class="container-fluid">
             <div class="content-wrapper" :class="menuCollapsed">
@@ -17,7 +17,7 @@
 </template>
 
 <script>
-    import Menu from "override/components/Menu.vue";
+    import LeftMenu from "override/components/LeftMenu.vue";
     import TopNavBar from "./components/layout/TopNavBar";
     import CustomToast from "./components/customToast";
     import NprogressContainer from "vue-nprogress/src/NprogressContainer";
@@ -27,7 +27,7 @@
     export default {
         name: "App",
         components: {
-            Menu,
+            LeftMenu,
             TopNavBar,
             CustomToast,
             NprogressContainer,
@@ -72,6 +72,7 @@
             },
             loadGeneralRessources() {
                 this.$store.dispatch("plugin/icons")
+                this.$store.dispatch("misc/loadConfigs")
             },
             grabThemeResources() {
                 // eslint-disable-next-line no-undef
@@ -97,11 +98,11 @@
                                 if (r.endsWith(".js")) {
                                     elem = document.createElement("script");
                                     elem.setAttribute("type", "text/javascript");
-                                    elem.setAttribute("src", basePath + "/" + r);
+                                    elem.setAttribute("src", basePath + r);
                                 } else {
                                     elem = document.createElement("link");
                                     elem.setAttribute("rel", "stylesheet");
-                                    elem.setAttribute("href", basePath + "/" + r);
+                                    elem.setAttribute("href", basePath + r);
                                 }
 
                                 elem.setAttribute("data-theme", theme);

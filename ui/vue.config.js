@@ -1,4 +1,5 @@
 const path = require("path");
+const webpack = require("webpack");
 const MonacoEditorPlugin = require("monaco-editor-webpack-plugin")
 // const WebpackBundleAnalyzer = require("webpack-bundle-analyzer").BundleAnalyzerPlugin;
 
@@ -23,6 +24,11 @@ module.exports = {
     },
     configureWebpack: {
         devtool: process.env.NODE_ENV !== "production" ? "eval-source-map" : false,
+        optimization: {
+            runtimeChunk: {
+                name: "runtime",
+            },
+        },
         resolve: {
             alias: {
                 override: path.resolve(__dirname, "src/override/"),
@@ -66,6 +72,10 @@ module.exports = {
                     "!toggleTabFocusMode",
                     "!viewportSemanticTokens",
                 ]
+            }),
+            new webpack.ProvidePlugin({
+                process: "process/browser",
+                Buffer: ["buffer", "Buffer"],
             }),
             // new WebpackBundleAnalyzer()
         ],

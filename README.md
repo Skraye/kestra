@@ -16,7 +16,7 @@
   <a href="https://hub.docker.com/r/kestra/kestra"><img src="https://img.shields.io/docker/pulls/kestra/kestra.svg?style=flat-square" alt="Docker pull" /></a>
   <a href="https://artifacthub.io/packages/helm/kestra/kestra"><img src="https://img.shields.io/badge/Artifact%20Hub-kestra-417598?style=flat-square&logo=artifacthub" alt="Artifact Hub" /></a>
   <a href="https://kestra.io"><img src="https://img.shields.io/badge/Website-kestra.io-192A4E?style=flat-square" alt="Kestra infinitely scalable orchestration and scheduling platform"></a>
-  <a href="https://discord.gg/5RgZmkW"><img src="https://img.shields.io/discord/903344083391631471?label=Discord&style=flat-square" alt="Discord"></a>
+  <a href="https://api.kestra.io/v1/communities/slack/redirect"><img src="https://img.shields.io/badge/Slack-chat-400d40?style=flat-square&logo=slack" alt="Slack"></a>
   <a href="https://github.com/kestra-io/kestra/discussions"><img src="https://img.shields.io/github/discussions/kestra-io/kestra?style=flat-square" alt="Github discussions"></a>
   <a href="https://twitter.com/kestra_io"><img src="https://img.shields.io/twitter/follow/kestra_io?style=flat-square" alt="Twitter" /></a>
   <a href="https://app.codecov.io/gh/kestra-io/kestra"><img src="https://img.shields.io/codecov/c/github/kestra-io/kestra?style=flat-square&token=It6L7BTaWK" alt="Code Cov" /></a>
@@ -29,7 +29,7 @@
     <a href="https://kestra.io/"><b>Website</b></a> •
     <a href="https://twitter.com/kestra_io"><b>Twitter</b></a> •
     <a href="https://www.linkedin.com/company/kestra/"><b>Linked In</b></a> •
-    <a href="https://discord.gg/NMG39WKGth"><b>Discord</b></a> •
+    <a href="https://api.kestra.io/v1/communities/slack/redirect"><b>Slack</b></a> •
     <a href="https://kestra.io/docs/"><b>Documentation</b></a>
 </p>
 
@@ -166,25 +166,30 @@ Kestra is built on [plugin systems](https://kestra.io/plugins/). You can find yo
     <tr>
         <td><a href="https://kestra.io/plugins/plugin-aws#s3">Amazon S3</a></td>
         <td><a href="https://kestra.io/plugins/plugin-serdes#avro">Avro</a></td>
-        <td><a href="https://kestra.io/plugins/core/tasks/scripts/io.kestra.core.tasks.scripts.Bash">Bash</a></td>
+        <td><a href="https://kestra.io/plugins/plugin-azure/#storage-blob">Azure Blob Storage</a></td>
     </tr>
     <tr>
+        <td><a href="https://kestra.io/plugins/core/tasks/scripts/io.kestra.core.tasks.scripts.Bash">Bash</a></td>
         <td><a href="https://kestra.io/plugins/plugin-gcp#bigquery">Big Query</a></td>
-        <td><a href="https://kestra.io/plugins/plugin-cassandra">Cassandra</a></td>
         <td><a href="https://kestra.io/plugins/plugin-serdes#csv">CSV</a></td>
     </tr>
     <tr>
+        <td><a href="https://kestra.io/plugins/plugin-cassandra">Cassandra</a></td>
         <td><a href="https://kestra.io/plugins/plugin-jdbc-clickhouse">ClickHouse</a></td>
+        <td><a href="https://kestra.io/plugins/plugin-dbt">DBT</a></td>
+    </tr>
+    <tr>
         <td><a href="https://kestra.io/plugins/plugin-debezium-mysql">Debezium MYSQL</a></td>
         <td><a href="https://kestra.io/plugins/plugin-debezium-postgres">Debezium Postgres</a></td>
-    </tr>
-    <tr>
         <td><a href="https://kestra.io/plugins/plugin-debezium-sqlserver">Debezium Microsoft SQL Server</a></td>
-        <td><a href="https://kestra.io/plugins/plugin-dbt">DBT</a></td>
-        <td><a href="https://kestra.io/plugins/plugin-elasticsearch">ElasticSearch</a></td>
     </tr>
     <tr>
+        <td><a href="https://kestra.io/plugins/plugin-elasticsearch">ElasticSearch</a></td>
         <td><a href="https://kestra.io/plugins/plugin-notifications#mail">Email</a></td>
+        <td><a href="https://kestra.io/plugins/plugin-fs#ftp">FTP</a></td>
+    </tr>
+    <tr>
+        <td><a href="https://kestra.io/plugins/plugin-fs#ftps">FTPS</a></td>
         <td><a href="https://kestra.io/plugins/plugin-gcp#gcs">Google Cloud Storage</a></td>
         <td><a href="https://kestra.io/plugins/plugin-googleworkspace#drive">Google Drive</a></td>
     </tr>
@@ -200,32 +205,42 @@ Kestra is built on [plugin systems](https://kestra.io/plugins/). You can find yo
     </tr>
     <tr>
         <td><a href="https://kestra.io/plugins/plugin-kubernetes">Kubernetes</a></td>
+        <td><a href="https://kestra.io/plugins/plugin-mqtt">MQTT</a></td>
         <td><a href="https://kestra.io/plugins/plugin-jdbc-sqlserver">Microsoft SQL Server</a></td>
-        <td><a href="https://kestra.io/plugins/plugin-mongodb">MongoDb</a></td>
     </tr>
     <tr>
+        <td><a href="https://kestra.io/plugins/plugin-mongodb">MongoDb</a></td>
         <td><a href="https://kestra.io/plugins/plugin-jdbc-mysql">MySQL</a></td>
         <td><a href="https://kestra.io/plugins/plugin-scripts-nashorn">Nashorn</a></td>
-        <td><a href="https://kestra.io/plugins/core/tasks/scripts/io.kestra.core.tasks.scripts.Node">Node</a></td>
     </tr>
     <tr>
+        <td><a href="https://kestra.io/plugins/core/tasks/scripts/io.kestra.core.tasks.scripts.Node">Node</a></td>
         <td><a href="https://kestra.io/plugins/plugin-crypto#openpgp">Open PGP</a></td>
         <td><a href="https://kestra.io/plugins/plugin-jdbc-oracle">Oracle</a></td>
-        <td><a href="https://kestra.io/plugins/plugin-jdbc-postgres">Postgres</a></td>
     </tr>
     <tr>
+        <td><a href="https://kestra.io/plugins/plugin-jdbc-postgres">Postgres</a></td>
+        <td><a href="https://kestra.io/plugins/plugin-power">Power BI</a></td>
         <td><a href="https://kestra.io/plugins/core/tasks/scripts/io.kestra.core.tasks.scripts.Python">Python</a></td>
+    </tr>
+    <tr>
         <td><a href="https://kestra.io/plugins/plugin-jdbc-redshift">Redshift</a></td>
+        <td><a href="https://kestra.io/plugins/plugin-servicenow">ServiceNow</a></td>
+        <td><a href="https://kestra.io/plugins/plugin-fs#sftp">SFTP</a></td>
+    </tr>
+    <tr>
+        <td><a href="https://kestra.io/plugins/plugin-singer">Singer</a></td>
+        <td><a href="https://kestra.io/plugins/plugin-notifications#slack">Slack</a></td>
         <td><a href="https://kestra.io/plugins/plugin-jdbc-snowflake">Snowflake</a></td>
     </tr>
     <tr>
-        <td><a href="https://kestra.io/plugins/plugin-fs#sftp">SFTP</a></td>
-        <td><a href="https://kestra.io/plugins/plugin-singer">Singer</a></td>
-        <td><a href="https://kestra.io/plugins/plugin-notifications#slack">Slack</a></td>
+        <td><a href="https://kestra.io/plugins/plugin-soda">Soda</a></td>
+        <td><a href="https://kestra.io/plugins/plugin-spark">Spark</a></td>
+        <td><a href="https://kestra.io/plugins/plugin-tika">Tika</a></td>
     </tr>
     <tr>
-        <td><a href="https://kestra.io/plugins/plugin-spark">Spark</a></td>
         <td><a href="https://kestra.io/plugins/plugin-jdbc-vectorwise">Vectorwise</a></td>
+        <td><a href="https://kestra.io/plugins/plugin-gcp#vertexai/">Vertex AI</a></td>
         <td><a href="https://kestra.io/plugins/plugin-jdbc-vertica">Vertica</a></td>
     </tr>
     <tr>
@@ -245,7 +260,7 @@ Join our community if you need help, want to chat or have any other questions fo
 
 - [GitHub](https://github.com/kestra-io/kestra/discussions) - Discussion forums and updates from the Kestra team
 - [Twitter](https://twitter.com/kestra_io) - For all the latest Kestra news
-- [Discord](https://discord.gg/NMG39WKGth) - Join the conversation! Get all the latest updates and chat to the devs
+- [Slack](https://api.kestra.io/v1/communities/slack/redirect) - Join the conversation! Get all the latest updates and chat to the devs
 
 
 ## Roadmap
