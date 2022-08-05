@@ -85,7 +85,8 @@ export default {
                 ...{
                     value: this.value,
                     theme: this.theme,
-                    language: this.language
+                    language: this.language,
+                    automaticLayout: true
                 },
                 ...this.options
             };

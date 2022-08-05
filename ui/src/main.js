@@ -25,6 +25,30 @@ import stores from "./stores/store"
 import vSelect from "vue-select"
 import VueHotkey from "v-hotkey"
 
+import TaskString from "./components/flows/tasks/TaskString.vue";
+import TaskDynamic from "./components/flows/tasks/TaskDynamic.vue";
+import TaskNumber from "./components/flows/tasks/TaskNumber.vue";
+import TaskEnum from "./components/flows/tasks/TaskEnum.vue";
+import TaskBoolean from "./components/flows/tasks/TaskBoolean.vue";
+import TaskObject from "./components/flows/tasks/TaskObject.vue";
+import TaskDict from "./components/flows/tasks/TaskDict.vue";
+import TaskArray from "./components/flows/tasks/TaskArray.vue";
+import TaskTask from "./components/flows/tasks/TaskTask.vue";
+import TaskRoot from "./components/flows/tasks/TaskRoot.vue";
+
+Vue.component("TaskString", TaskString);
+Vue.component("TaskDynamic", TaskDynamic);
+Vue.component("TaskNumber", TaskNumber);
+Vue.component("TaskInteger", TaskNumber);
+
+Vue.component("TaskEnum", TaskEnum);
+Vue.component("TaskBoolean", TaskBoolean);
+Vue.component("TaskObject", TaskObject);
+Vue.component("TaskArray", TaskArray);
+Vue.component("TaskTask", TaskTask);
+Vue.component("TaskDict", TaskDict);
+Vue.component("TaskRoot", TaskRoot)
+
 import {
     Chart,
     CategoryScale,
