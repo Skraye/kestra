@@ -56,7 +56,7 @@ public class ExecutorService {
 
     public Executor process(Executor executor) {
         // previous failed (flow join can fail), just forward
-        if (executor.getException() != null) {
+        if (executor.getException() != null || executor.getExecution().isDeleted()) {
             return executor;
         }
 
@@ -628,17 +628,18 @@ public class ExecutorService {
     }
 
     public boolean canBePurged(final Executor executor) {
-        return executor.getFlow() != null &&
-            // is terminated
-            conditionService.isTerminatedWithListeners(executor.getFlow(), executor.getExecution())
-            // we don't purge pause execution in order to be able to restart automatically in case of delay
-            && executor.getExecution().getState().getCurrent() != State.Type.PAUSED
-            // we don't purge killed execution in order to have feedback about child running tasks
-            // this can be killed lately (after the executor kill the execution), but we want to keep
-            // feedback about the actual state (killed or not)
-            // @TODO: this can lead to infinite state store for most executor topic
-            && executor.getExecution().getState().getCurrent() != State.Type.KILLED;
-
+        return executor.getExecution().isDeleted() || (
+            executor.getFlow() != null &&
+                // is terminated
+                conditionService.isTerminatedWithListeners(executor.getFlow(), executor.getExecution())
+                // we don't purge pause execution in order to be able to restart automatically in case of delay
+                && executor.getExecution().getState().getCurrent() != State.Type.PAUSED
+                // we don't purge killed execution in order to have feedback about child running tasks
+                // this can be killed lately (after the executor kill the execution), but we want to keep
+                // feedback about the actual state (killed or not)
+                // @TODO: this can lead to infinite state store for most executor topic
+                && executor.getExecution().getState().getCurrent() != State.Type.KILLED
+        );
     }
 
     public void log(Logger log, Boolean in, WorkerTask value) {
@@ -671,12 +672,13 @@ public class ExecutorService {
 
     public void log(Logger log, Boolean in, Executor value) {
         log.debug(
-            "{} {} [key='{}', from='{}', offset='{}']\n{}",
+            "{} {} [key='{}', from='{}', offset='{}', crc32='{}']\n{}",
             in ? "<< IN " : ">> OUT",
             value.getClass().getSimpleName(),
             value.getExecution().getId(),
             value.getFrom(),
             value.getOffset(),
+            value.getExecution().toCrc32State(),
             value.getExecution().toStringState()
         );
     }

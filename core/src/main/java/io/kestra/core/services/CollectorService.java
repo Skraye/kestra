@@ -17,14 +17,14 @@ import io.micronaut.http.client.annotation.Client;
 import io.micronaut.http.client.exceptions.HttpClientResponseException;
 import io.micronaut.http.hateoas.JsonError;
 import io.micronaut.rxjava2.http.client.RxHttpClient;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 import lombok.extern.slf4j.Slf4j;
 
 import java.lang.management.ManagementFactory;
 import java.net.URI;
 import java.time.Instant;
 import java.time.ZoneId;
-import jakarta.inject.Inject;
-import jakarta.inject.Singleton;
 
 @Singleton
 @Slf4j
@@ -43,6 +43,9 @@ public class CollectorService {
 
     @Inject
     private ExecutionRepositoryInterface executionRepository;
+
+    @Inject
+    private InstanceService instanceService;
 
     @Inject
     private VersionProvider versionProvider;
@@ -66,6 +69,7 @@ public class CollectorService {
         if (first) {
             defaultUsage = Usage.builder()
                 .startUuid(UUID)
+                .instanceUuid(instanceService.fetch())
                 .serverType(serverType)
                 .version(versionProvider.getVersion())
                 .zoneId(ZoneId.systemDefault())

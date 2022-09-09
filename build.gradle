@@ -18,7 +18,7 @@ plugins {
 
     // release
     id "io.github.gradle-nexus.publish-plugin" version "1.1.0"
-    id 'net.researchgate.release' version '3.0.0'
+    id 'net.researchgate.release' version '3.0.1'
     id "com.gorylenko.gradle-git-properties" version "2.4.1"
     id 'signing'
     id 'ru.vyarus.pom' version '2.2.1' apply false
@@ -70,6 +70,7 @@ allprojects {
         resolutionStrategy {
             force("org.apache.kafka:kafka-clients:" + kafkaVersion)
             force("org.apache.kafka:kafka-streams:" + kafkaVersion)
+            force("org.jooq:jooq:3.16.9")
         }
     }
 
@@ -155,7 +156,6 @@ subprojects {
 
         retry {
             maxRetries = 5
-            maxFailures = 15
         }
     }
 
@@ -346,6 +346,11 @@ subprojects {
         from javadoc
     }
 
+    task testsJar(type: Jar) {
+        archiveClassifier.set('tests')
+        from sourceSets.test.output
+    }
+
     github {
         user 'kestra-io'
         license 'Apache'
@@ -383,6 +388,7 @@ subprojects {
 
                     artifact sourcesJar
                     artifact javadocJar
+                    artifact testsJar
                 }
             }
         }

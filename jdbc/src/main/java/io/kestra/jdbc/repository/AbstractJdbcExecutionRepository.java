@@ -1,19 +1,28 @@
 package io.kestra.jdbc.repository;
 
+import io.kestra.core.events.CrudEvent;
+import io.kestra.core.events.CrudEventType;
 import io.kestra.core.models.executions.Execution;
 import io.kestra.core.models.executions.TaskRun;
 import io.kestra.core.models.executions.statistics.DailyExecutionStatistics;
 import io.kestra.core.models.executions.statistics.ExecutionCount;
 import io.kestra.core.models.executions.statistics.Flow;
 import io.kestra.core.models.flows.State;
+import io.kestra.core.queues.QueueFactoryInterface;
+import io.kestra.core.queues.QueueInterface;
 import io.kestra.core.repositories.ArrayListTotal;
 import io.kestra.core.repositories.ExecutionRepositoryInterface;
 import io.kestra.core.runners.Executor;
 import io.kestra.core.runners.ExecutorState;
+import io.kestra.core.serializers.JacksonMapper;
 import io.kestra.jdbc.runner.AbstractJdbcExecutorStateStorage;
 import io.kestra.jdbc.runner.JdbcIndexerInterface;
+import io.micronaut.context.ApplicationContext;
+import io.micronaut.context.event.ApplicationEventPublisher;
 import io.micronaut.data.model.Pageable;
+import io.micronaut.inject.qualifiers.Qualifiers;
 import jakarta.inject.Singleton;
+import lombok.SneakyThrows;
 import org.apache.commons.lang3.tuple.Pair;
 import org.jooq.*;
 import org.jooq.impl.DSL;
@@ -30,12 +39,34 @@ import javax.annotation.Nullable;
 
 @Singleton
 public abstract class AbstractJdbcExecutionRepository extends AbstractJdbcRepository implements ExecutionRepositoryInterface, JdbcIndexerInterface<Execution> {
-    protected io.kestra.jdbc.AbstractJdbcRepository<Execution> jdbcRepository;
-    protected AbstractJdbcExecutorStateStorage executorStateStorage;
+    protected final io.kestra.jdbc.AbstractJdbcRepository<Execution> jdbcRepository;
+    private final ApplicationEventPublisher<CrudEvent<Execution>> eventPublisher;
+    private final ApplicationContext applicationContext;
+    protected final AbstractJdbcExecutorStateStorage executorStateStorage;
 
-    public AbstractJdbcExecutionRepository(io.kestra.jdbc.AbstractJdbcRepository<Execution> jdbcRepository, AbstractJdbcExecutorStateStorage executorStateStorage) {
+    private QueueInterface<Execution> executionQueue;
+
+    @SuppressWarnings("unchecked")
+    public AbstractJdbcExecutionRepository(
+        io.kestra.jdbc.AbstractJdbcRepository<Execution> jdbcRepository,
+        ApplicationContext applicationContext,
+        AbstractJdbcExecutorStateStorage executorStateStorage
+    ) {
         this.jdbcRepository = jdbcRepository;
         this.executorStateStorage = executorStateStorage;
+        this.eventPublisher = applicationContext.getBean(ApplicationEventPublisher.class);
+
+        // we inject ApplicationContext in order to get the ExecutionQueue lazy to avoid StackOverflowError
+        this.applicationContext = applicationContext;
+    }
+
+    @SuppressWarnings("unchecked")
+    private QueueInterface<Execution> executionQueue() {
+        if (this.executionQueue == null) {
+            this.executionQueue = applicationContext.getBean(QueueInterface.class, Qualifiers.byName(QueueFactoryInterface.EXECUTION_NAMED));
+        }
+
+        return this.executionQueue;
     }
 
     public Boolean isTaskRunEnabled() {
@@ -87,12 +118,7 @@ public abstract class AbstractJdbcExecutionRepository extends AbstractJdbcReposi
                     .from(this.jdbcRepository.getTable())
                     .where(this.defaultFilter());
 
-                if (flowId != null && namespace != null) {
-                    select = select.and(field("namespace").eq(namespace));
-                    select = select.and(field("flow_id").eq(flowId));
-                } else if (namespace != null) {
-                    select = select.and(field("namespace").likeIgnoreCase(namespace + "%"));
-                }
+                select = filteringQuery(select, namespace, flowId, query);
 
                 if (startDate != null) {
                     select = select.and(field("start_date").greaterOrEqual(startDate.toOffsetDateTime()));
@@ -106,9 +132,6 @@ public abstract class AbstractJdbcExecutionRepository extends AbstractJdbcReposi
                     select = select.and(this.statesFilter(state));
                 }
 
-                if (query != null) {
-                    select.and(this.findCondition(query));
-                }
 
                 return this.jdbcRepository.fetchPage(context, select, pageable);
             });
@@ -169,6 +192,8 @@ public abstract class AbstractJdbcExecutionRepository extends AbstractJdbcReposi
                 field("state_current", String.class)
             ),
             query,
+            namespace,
+            flowId,
             startDate,
             endDate
         );
@@ -195,7 +220,14 @@ public abstract class AbstractJdbcExecutionRepository extends AbstractJdbcReposi
             .collect(Collectors.toList());
     }
 
-    private Results dailyStatisticsQuery(List<Field<?>> fields, String query, ZonedDateTime startDate, ZonedDateTime endDate) {
+    private Results dailyStatisticsQuery(
+        List<Field<?>> fields,
+        @Nullable String query,
+        @Nullable String namespace,
+        @Nullable String flowId,
+        @Nullable ZonedDateTime startDate,
+        @Nullable ZonedDateTime endDate
+    ) {
         ZonedDateTime finalStartDate = startDate == null ? ZonedDateTime.now().minusDays(30) : startDate;
         ZonedDateTime finalEndDate = endDate == null ? ZonedDateTime.now() : endDate;
 
@@ -219,9 +251,7 @@ public abstract class AbstractJdbcExecutionRepository extends AbstractJdbcReposi
                     .and(field("start_date").greaterOrEqual(finalStartDate.toOffsetDateTime()))
                     .and(field("start_date").lessOrEqual(finalEndDate.toOffsetDateTime()));
 
-                if (query != null) {
-                    select.and(this.findCondition(query));
-                }
+                select = filteringQuery(select, namespace, flowId, query);
 
                 List<Field<?>> groupFields = new ArrayList<>();
                 if (context.configuration().dialect() != SQLDialect.H2) {
@@ -237,6 +267,26 @@ public abstract class AbstractJdbcExecutionRepository extends AbstractJdbcReposi
 
                 return finalQuery.fetchMany();
             });
+    }
+
+    private <T extends Record> SelectConditionStep<T> filteringQuery(
+        SelectConditionStep<T> select,
+        @Nullable String namespace,
+        @Nullable String flowId,
+        @Nullable String query
+    ) {
+        if (flowId != null && namespace != null) {
+            select = select.and(field("namespace").eq(namespace));
+            select = select.and(field("flow_id").eq(flowId));
+        } else if (namespace != null) {
+            select = select.and(field("namespace").likeIgnoreCase(namespace + "%"));
+        }
+
+        if (query != null) {
+            select = select.and(this.findCondition(query));
+        }
+
+        return select;
     }
 
 
@@ -262,6 +312,8 @@ public abstract class AbstractJdbcExecutionRepository extends AbstractJdbcReposi
         Results results = dailyStatisticsQuery(
             fields,
             query,
+            namespace,
+            flowId,
             startDate,
             endDate
         );
@@ -450,6 +502,26 @@ public abstract class AbstractJdbcExecutionRepository extends AbstractJdbcReposi
         return execution;
     }
 
+    @SneakyThrows
+    @Override
+    public Execution delete(Execution execution) {
+        Optional<Execution> revision = this.findById(execution.getId());
+        if (revision.isEmpty()) {
+            throw new IllegalStateException("Execution " + execution.getId() + " doesn't exists");
+        }
+
+        Execution deleted = execution.toDeleted();
+
+        Map<Field<Object>, Object> fields = this.jdbcRepository.persistFields(deleted);
+        this.jdbcRepository.persist(deleted, fields);
+
+        executionQueue().emit(deleted);
+
+        eventPublisher.publishEvent(new CrudEvent<>(deleted, CrudEventType.DELETE));
+
+        return deleted;
+    }
+
     public Executor lock(String executionId, Function<Pair<Execution, ExecutorState>, Pair<Executor, ExecutorState>> function) {
         return this.jdbcRepository
             .getDslContextWrapper()
@@ -460,6 +532,7 @@ public abstract class AbstractJdbcExecutionRepository extends AbstractJdbcReposi
                     .select(field("value"))
                     .from(this.jdbcRepository.getTable())
                     .where(field("key").eq(executionId))
+                    .and(this.defaultFilter())
                     .forUpdate();
 
                 Optional<Execution> execution = this.jdbcRepository.fetchOne(from);
